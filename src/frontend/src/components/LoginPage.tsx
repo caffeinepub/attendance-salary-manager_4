@@ -120,13 +120,10 @@ export default function LoginPage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 w-full max-w-md mx-4"
       >
-        {/* Card */}
         <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-          {/* Top accent bar with gradient */}
           <div className="h-1.5 w-full bg-gradient-to-r from-primary via-destructive to-primary" />
 
           <div className="p-8 sm:p-10">
-            {/* Logo / Brand */}
             <motion.div
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -146,7 +143,6 @@ export default function LoginPage() {
               </p>
             </motion.div>
 
-            {/* Form */}
             <motion.form
               onSubmit={handleSubmit}
               className="space-y-5"
@@ -219,26 +215,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </motion.form>
-
-            {/* Hint */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.45 }}
-              className="mt-6 text-center"
-            >
-              <p className="text-xs text-muted-foreground">
-                Use{" "}
-                <span className="font-semibold text-primary">
-                  admin / admin123
-                </span>{" "}
-                for full access or{" "}
-                <span className="font-semibold text-muted-foreground">
-                  guest / guest123
-                </span>{" "}
-                for view only
-              </p>
-            </motion.div>
           </div>
         </div>
       </motion.div>

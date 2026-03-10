@@ -34,6 +34,23 @@ const ATTENDANCE_OPTIONS = [
   "0.9",
 ];
 
+function getAttendanceColor(value: string): string {
+  if (value === "Present")
+    return "bg-green-100 text-green-800 border-green-300";
+  if (value === "Absent") return "bg-red-100 text-red-800 border-red-300";
+  // partial values
+  const partials = ["0.33", "0.4", "0.5", "0.66", "0.7", "0.8", "0.9"];
+  if (partials.includes(value))
+    return "bg-amber-100 text-amber-800 border-amber-300";
+  return "";
+}
+
+function getAttendanceItemColor(value: string): string {
+  if (value === "Present") return "text-green-700 font-semibold";
+  if (value === "Absent") return "text-red-700 font-semibold";
+  return "text-amber-700";
+}
+
 function attValue(v: string): number {
   if (v === "Absent" || v === "") return 0;
   if (v === "Present") return 1;
@@ -248,6 +265,26 @@ export default function AttendanceTab({ initialContractId }: Props) {
     toast.success("Column deleted");
   };
 
+  // Compute column totals for the totals row
+  const totalBed = labours.reduce(
+    (acc, l) => acc + attValue(getRecordValue(l.id, "bed", BigInt(0))),
+    0,
+  );
+  const totalPaper = labours.reduce(
+    (acc, l) => acc + attValue(getRecordValue(l.id, "paper", BigInt(0))),
+    0,
+  );
+  const totalMeshPerCol = cols.map((col) =>
+    labours.reduce(
+      (acc, l) => acc + attValue(getRecordValue(l.id, "mesh", col.id)),
+      0,
+    ),
+  );
+  const grandTotalSalary = labours.reduce(
+    (acc, l) => acc + (salaries[l.id.toString()] || 0),
+    0,
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3 items-center">
@@ -385,14 +422,18 @@ export default function AttendanceTab({ initialContractId }: Props) {
                         disabled={!isAdmin}
                       >
                         <SelectTrigger
-                          className="w-24 h-8"
+                          className={`w-24 h-8 ${getAttendanceColor(getRecordValue(labour.id, "bed", BigInt(0)))}`}
                           data-ocid={`attendance.bed.select.${i + 1}`}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {ATTENDANCE_OPTIONS.map((o) => (
-                            <SelectItem key={o} value={o}>
+                            <SelectItem
+                              key={o}
+                              value={o}
+                              className={getAttendanceItemColor(o)}
+                            >
                               {o}
                             </SelectItem>
                           ))}
@@ -410,14 +451,18 @@ export default function AttendanceTab({ initialContractId }: Props) {
                         disabled={!isAdmin}
                       >
                         <SelectTrigger
-                          className="w-24 h-8"
+                          className={`w-24 h-8 ${getAttendanceColor(getRecordValue(labour.id, "paper", BigInt(0)))}`}
                           data-ocid={`attendance.paper.select.${i + 1}`}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {ATTENDANCE_OPTIONS.map((o) => (
-                            <SelectItem key={o} value={o}>
+                            <SelectItem
+                              key={o}
+                              value={o}
+                              className={getAttendanceItemColor(o)}
+                            >
                               {o}
                             </SelectItem>
                           ))}
@@ -436,14 +481,18 @@ export default function AttendanceTab({ initialContractId }: Props) {
                           disabled={!isAdmin}
                         >
                           <SelectTrigger
-                            className="w-24 h-8"
+                            className={`w-24 h-8 ${getAttendanceColor(getRecordValue(labour.id, "mesh", col.id))}`}
                             data-ocid={`attendance.mesh.select.${i + 1}`}
                           >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {ATTENDANCE_OPTIONS.map((o) => (
-                              <SelectItem key={o} value={o}>
+                              <SelectItem
+                                key={o}
+                                value={o}
+                                className={getAttendanceItemColor(o)}
+                              >
                                 {o}
                               </SelectItem>
                             ))}
@@ -456,6 +505,30 @@ export default function AttendanceTab({ initialContractId }: Props) {
                     </td>
                   </tr>
                 ))}
+                {labours.length > 0 && (
+                  <tr className="border-t-2 border-border bg-muted/50">
+                    <td colSpan={2} className="px-3 py-2 font-bold">
+                      Total
+                    </td>
+                    <td className="px-3 py-2 font-bold text-primary">
+                      {totalBed.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 font-bold text-primary">
+                      {totalPaper.toFixed(2)}
+                    </td>
+                    {cols.map((col, idx) => (
+                      <td
+                        key={col.id.toString()}
+                        className="px-3 py-2 font-bold text-primary"
+                      >
+                        {totalMeshPerCol[idx].toFixed(2)}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 font-bold text-primary">
+                      ₹{grandTotalSalary.toFixed(2)}
+                    </td>
+                  </tr>
+                )}
                 {labours.length === 0 && (
                   <tr>
                     <td

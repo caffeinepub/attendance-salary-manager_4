@@ -129,6 +129,25 @@ export default function PaymentsTab() {
     };
   });
 
+  // Compute totals for the totals row
+  const grandTotalEarnings = paymentData.reduce(
+    (acc, r) => acc + r.totalEarnings,
+    0,
+  );
+  const grandTotalAdvances = paymentData.reduce(
+    (acc, r) => acc + r.totalAdvances,
+    0,
+  );
+  const grandNetSalary = paymentData.reduce((acc, r) => acc + r.netSalary, 0);
+  const grandPerContract: Record<string, number> = {};
+  for (const contract of selectedContracts) {
+    const key = contract.id.toString();
+    grandPerContract[key] = paymentData.reduce(
+      (acc, r) => acc + (r.perContract[key] || 0),
+      0,
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Payment Calculator</h2>
@@ -225,6 +244,30 @@ export default function PaymentsTab() {
                   </TableCell>
                 </TableRow>
               ))}
+              {paymentData.length > 0 && (
+                <TableRow className="border-t-2 border-border bg-muted/50">
+                  <TableCell className="font-bold">Total</TableCell>
+                  <TableCell className="font-bold">Totals</TableCell>
+                  {showBreakdown &&
+                    selectedContracts.map((c) => (
+                      <TableCell
+                        key={c.id.toString()}
+                        className="font-bold text-primary"
+                      >
+                        ₹{(grandPerContract[c.id.toString()] || 0).toFixed(2)}
+                      </TableCell>
+                    ))}
+                  <TableCell className="font-bold text-primary">
+                    ₹{grandTotalEarnings.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-destructive font-bold">
+                    -₹{grandTotalAdvances.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="font-bold text-primary">
+                    ₹{grandNetSalary.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              )}
               {labours.length === 0 && (
                 <TableRow>
                   <TableCell

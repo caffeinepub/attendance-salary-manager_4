@@ -1,3 +1,13 @@
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -5,11 +15,13 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  KeyRound,
   LogOut,
   Users,
   Wallet,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import AdvancesTab from "./components/AdvancesTab";
 import AttendanceTab from "./components/AttendanceTab";
 import ContractsTab from "./components/ContractsTab";
@@ -17,15 +29,145 @@ import LaboursTab from "./components/LaboursTab";
 import LoginPage from "./components/LoginPage";
 import PaymentsTab from "./components/PaymentsTab";
 import SettledTab from "./components/SettledTab";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider, type Credentials, useAuth } from "./context/AuthContext";
 import { AppDataProvider } from "./hooks/useAppData";
 
+function getUsernameForRole(
+  credentials: Credentials,
+  role: "admin" | "guest",
+): string {
+  for (const [k, v] of Object.entries(credentials)) {
+    if (v.role === role) return k;
+  }
+  return role;
+}
+
+function CredentialForm({
+  type,
+  credentials,
+  updateCredentials,
+  onClose,
+}: {
+  type: "admin" | "guest";
+  credentials: Credentials;
+  updateCredentials: (
+    type: "admin" | "guest",
+    newUsername: string,
+    newPassword: string,
+  ) => void;
+  onClose: () => void;
+}) {
+  const currentUsername = getUsernameForRole(credentials, type);
+  const [newUsername, setNewUsername] = useState(currentUsername);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errors, setErrors] = useState<{
+    username?: string;
+    password?: string;
+    confirm?: string;
+  }>({});
+
+  const validate = () => {
+    const e: typeof errors = {};
+    if (!newUsername.trim()) e.username = "Username is required";
+    if (newPassword.length < 4)
+      e.password = "Password must be at least 4 characters";
+    if (newPassword !== confirmPassword) e.confirm = "Passwords do not match";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSave = () => {
+    if (!validate()) return;
+    updateCredentials(type, newUsername.trim(), newPassword);
+    toast.success(
+      `${type === "admin" ? "Admin" : "Guest"} credentials updated successfully`,
+    );
+    onClose();
+  };
+
+  const prefix =
+    type === "admin" ? "admin.credentials.admin" : "admin.credentials.guest";
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">
+          Current Username
+        </Label>
+        <div className="h-9 px-3 flex items-center bg-muted/50 rounded-md text-sm font-medium text-foreground border border-border">
+          {currentUsername}
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${type}-username`} className="text-sm font-semibold">
+          New Username
+        </Label>
+        <Input
+          id={`${type}-username`}
+          value={newUsername}
+          onChange={(e) => setNewUsername(e.target.value)}
+          placeholder="Enter new username"
+          data-ocid={`${prefix}_username_input`}
+          className="h-9 focus-visible:ring-primary"
+        />
+        {errors.username && (
+          <p className="text-xs text-destructive">{errors.username}</p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${type}-password`} className="text-sm font-semibold">
+          New Password
+        </Label>
+        <Input
+          id={`${type}-password`}
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Min. 4 characters"
+          data-ocid={`${prefix}_password_input`}
+          className="h-9 focus-visible:ring-primary"
+        />
+        {errors.password && (
+          <p className="text-xs text-destructive">{errors.password}</p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${type}-confirm`} className="text-sm font-semibold">
+          Confirm Password
+        </Label>
+        <Input
+          id={`${type}-confirm`}
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Repeat new password"
+          data-ocid={`${prefix}_confirm_input`}
+          className="h-9 focus-visible:ring-primary"
+        />
+        {errors.confirm && (
+          <p className="text-xs text-destructive">{errors.confirm}</p>
+        )}
+      </div>
+      <Button
+        onClick={handleSave}
+        data-ocid={`${prefix}_save_button`}
+        className="w-full h-9 font-bold bg-primary hover:bg-primary/90 text-primary-foreground"
+      >
+        Save {type === "admin" ? "Admin" : "Guest"} Credentials
+      </Button>
+    </div>
+  );
+}
+
 function AppShell() {
-  const { role, logout } = useAuth();
+  const { role, logout, credentials, updateCredentials } = useAuth();
   const [activeTab, setActiveTab] = useState("contracts");
   const [attendanceContractId, setAttendanceContractId] = useState<
     bigint | null
   >(null);
+  const [credDialogOpen, setCredDialogOpen] = useState(false);
+  const [credTab, setCredTab] = useState<"admin" | "guest">("admin");
 
   if (!role) return <LoginPage />;
 
@@ -51,6 +193,71 @@ function AppShell() {
             >
               {role === "admin" ? "Admin" : "Guest"}
             </span>
+
+            {role === "admin" && (
+              <Dialog open={credDialogOpen} onOpenChange={setCredDialogOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    data-ocid="admin.credentials.open_modal_button"
+                    title="Change credentials"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-md hover:bg-primary/10"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Credentials</span>
+                  </button>
+                </DialogTrigger>
+                <DialogContent
+                  className="max-w-sm"
+                  data-ocid="admin.credentials.dialog"
+                >
+                  <DialogHeader>
+                    <DialogTitle className="text-base font-bold">
+                      Change Credentials
+                    </DialogTitle>
+                  </DialogHeader>
+                  <Tabs
+                    value={credTab}
+                    onValueChange={(v) => setCredTab(v as "admin" | "guest")}
+                    className="mt-1"
+                  >
+                    <TabsList className="w-full">
+                      <TabsTrigger
+                        value="admin"
+                        className="flex-1 text-xs"
+                        data-ocid="admin.credentials.admin.tab"
+                      >
+                        Admin
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="guest"
+                        className="flex-1 text-xs"
+                        data-ocid="admin.credentials.guest.tab"
+                      >
+                        Guest
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="admin" className="mt-4">
+                      <CredentialForm
+                        type="admin"
+                        credentials={credentials}
+                        updateCredentials={updateCredentials}
+                        onClose={() => setCredDialogOpen(false)}
+                      />
+                    </TabsContent>
+                    <TabsContent value="guest" className="mt-4">
+                      <CredentialForm
+                        type="guest"
+                        credentials={credentials}
+                        updateCredentials={updateCredentials}
+                        onClose={() => setCredDialogOpen(false)}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </DialogContent>
+              </Dialog>
+            )}
+
             <button
               type="button"
               onClick={logout}
@@ -69,7 +276,7 @@ function AppShell() {
           onValueChange={setActiveTab}
           className="flex flex-col flex-1 min-h-0"
         >
-          <main className="flex-1 overflow-auto p-4 pb-24">
+          <main className="flex-1 overflow-auto p-4 pb-28">
             <TabsContent value="contracts" className="mt-0">
               <ContractsTab onOpenAttendance={openAttendance} />
             </TabsContent>
@@ -93,72 +300,72 @@ function AppShell() {
           {/* Bottom Navigation Bar */}
           <TabsList
             data-ocid="nav.tabs"
-            className="fixed bottom-0 left-0 right-0 z-50 h-auto rounded-none rounded-t-2xl border-t border-border bg-card shadow-nav grid grid-cols-6 gap-0 p-1 pb-safe"
+            className="fixed bottom-0 left-0 right-0 z-50 h-auto rounded-none rounded-t-2xl border-t border-border bg-card shadow-nav grid grid-cols-6 gap-0 p-2 pb-safe"
           >
             <TabsTrigger
               value="contracts"
               data-ocid="contracts.tab"
-              className="flex flex-col items-center gap-0.5 py-2 px-1 text-[10px] font-semibold rounded-xl transition-all
+              className="flex flex-col items-center gap-1 py-3 px-1 text-[11px] font-semibold rounded-xl transition-all
                 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
                 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent"
             >
-              <FileText className="w-5 h-5" />
+              <FileText className="w-6 h-6" />
               <span>Contracts</span>
             </TabsTrigger>
             <TabsTrigger
               value="attendance"
               data-ocid="attendance.tab"
-              className="flex flex-col items-center gap-0.5 py-2 px-1 text-[10px] font-semibold rounded-xl transition-all
+              className="flex flex-col items-center gap-1 py-3 px-1 text-[11px] font-semibold rounded-xl transition-all
                 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
                 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent"
             >
-              <ClipboardList className="w-5 h-5" />
+              <ClipboardList className="w-6 h-6" />
               <span>Attendance</span>
             </TabsTrigger>
             <TabsTrigger
               value="advances"
               data-ocid="advances.tab"
-              className="flex flex-col items-center gap-0.5 py-2 px-1 text-[10px] font-semibold rounded-xl transition-all
+              className="flex flex-col items-center gap-1 py-3 px-1 text-[11px] font-semibold rounded-xl transition-all
                 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
                 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent"
             >
-              <Wallet className="w-5 h-5" />
+              <Wallet className="w-6 h-6" />
               <span>Advances</span>
             </TabsTrigger>
             <TabsTrigger
               value="payments"
               data-ocid="payments.tab"
-              className="flex flex-col items-center gap-0.5 py-2 px-1 text-[10px] font-semibold rounded-xl transition-all
+              className="flex flex-col items-center gap-1 py-3 px-1 text-[11px] font-semibold rounded-xl transition-all
                 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
                 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent"
             >
-              <CreditCard className="w-5 h-5" />
+              <CreditCard className="w-6 h-6" />
               <span>Payments</span>
             </TabsTrigger>
             <TabsTrigger
               value="labours"
               data-ocid="labours.tab"
-              className="flex flex-col items-center gap-0.5 py-2 px-1 text-[10px] font-semibold rounded-xl transition-all
+              className="flex flex-col items-center gap-1 py-3 px-1 text-[11px] font-semibold rounded-xl transition-all
                 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
                 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent"
             >
-              <Users className="w-5 h-5" />
+              <Users className="w-6 h-6" />
               <span>Labours</span>
             </TabsTrigger>
             <TabsTrigger
               value="settled"
               data-ocid="settled.tab"
-              className="flex flex-col items-center gap-0.5 py-2 px-1 text-[10px] font-semibold rounded-xl transition-all
+              className="flex flex-col items-center gap-1 py-3 px-1 text-[11px] font-semibold rounded-xl transition-all
                 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
                 data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent"
             >
-              <CheckCircle2 className="w-5 h-5" />
+              <CheckCircle2 className="w-6 h-6" />
               <span>Settled</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
-      <Toaster />
+      <Toaster position="top-right" />
     </AppDataProvider>
   );
 }

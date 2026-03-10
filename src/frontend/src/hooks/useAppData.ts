@@ -117,8 +117,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [advances, setAdvances] = useState<Record<string, Advance[]>>({});
   const [loading, setLoading] = useState(true);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
   useEffect(() => {
+    // Wait until the backend actor is ready before loading data
+    if (!backendActor) return;
+
     async function init() {
       try {
         const [active, settled] = await Promise.all([
@@ -176,7 +178,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
     }
     init();
-  }, []);
+  }, [backendActor]);
 
   const addLabour = async (name: string, phone: string, notes: string) => {
     const labour = await backendActor!.createLabour(name, phone, notes);
